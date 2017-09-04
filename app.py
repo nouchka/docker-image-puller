@@ -8,6 +8,7 @@ import re
 from flask import Flask
 from flask import request
 from flask import jsonify
+from flask import abort
 
 from docker import Client
 
@@ -20,61 +21,34 @@ docker = Client(base_url=DOCKER_HOST)
 def main():
     return jsonify(success=True), 200
 
-@app.route('/images/pull', methods=['POST'])
+@app.route(os.environ['ROUTE'], methods=['POST'])
 def image_puller():
-    if not request.args['token'] or not request.args['image']:
-        return jsonify(success=False, error="Missing parameters"), 400
-
-    image = request.args['image']
+    if not request.args['token']:
+        abort(404)
 
     if request.args['token'] != os.environ['TOKEN']:
-        return jsonify(success=False, error="Invalid token"), 403
+        abort(404)
 
-    restart_containers = True if request.args['restart_containers'] == "true" else False
+    image = request.args.get('image', '')
+    if not image:
+      json = request.get_json(force=True)
+      image = json['repository']['namespace'] + '/' + json['repository']['name']
 
-    old_containers = []
-    for cont in docker.containers():
-        if re.match( r'.*' + re.escape(image) + r'$', cont['Image']):
-            cont = docker.inspect_container(container=cont['Id'])
-            image = cont['Config']['Image']
-            old_containers.append(cont)
+    app.logger.debug('Puller for image ' + image)
 
-    if len(old_containers) is 0:
-        return jsonify(success=False, error="No running containers found with the specified image"), 404
+    images = []
+    for cont in docker.images(image, False, filters={'dangling': False}):
+        if cont['RepoTags']:
+          images.append(cont['RepoTags'][0])
+          image = cont['RepoTags'][0].split(':')
+          image_name = image[0]
+          image_tag  = image[1] if len(image) == 2 else 'latest'
+          app.logger.debug('Pulling... '+image_name+':'+image_tag)
+          docker.pull(image_name, tag=image_tag)
 
-    print ('Updating', str(len(old_containers)), 'containers with', image, 'image')
-    image = image.split(':')
-    image_name = image[0]
-    image_tag  = image[1] if len(image) == 2 else 'latest'
+    print ('Updating', str(len(images)), 'containers with', image, 'image')
 
-    print ('\tPulling new image...')
-    docker.pull(image_name, tag=image_tag)
-
-    if restart_containers is False:
-        return jsonify(success=True), 200
-
-    print ('\tCreating new containers...')
-    new_containers = []
-    for cont in old_containers:
-        if 'HOSTNAME' in os.environ and os.environ['HOSTNAME'] == cont['Id']:
-            return jsonify(success=False, error="You can't restart the container where the puller script is running"), 403
-
-        new_cont = docker.create_container(image=cont['Config']['Image'], environment=cont['Config']['Env'], host_config=cont['HostConfig'])
-        new_containers.append(new_cont)
-
-    print ('\tStopping old containers...')
-    for cont in old_containers:
-        docker.stop(container=cont['Id'])
-
-    print ('\tStarting new containers...')
-    for cont in new_containers:
-        docker.start(container=cont['Id'])
-
-    print ('\tRemoving old containers...')
-    for cont in old_containers:
-        docker.remove_container(container=cont['Id'])
-
-    return jsonify(success=True), 200
+    return jsonify(success=True, num_images=len(images)), 200
 
 @click.command()
 @click.option('-h',      default='0.0.0.0', help='Set the host')
@@ -84,17 +58,6 @@ def main(h, p, debug):
     if not os.environ.get('TOKEN'):
         print ('ERROR: Missing TOKEN env variable')
         sys.exit(1)
-
-    registry_user = os.environ.get('REGISTRY_USER')
-    registry_passwd = os.environ.get('REGISTRY_PASSWD')
-    registry_url = os.environ.get('REGISTRY_URL', 'https://index.docker.io/v1/')
-
-    if registry_user and registry_passwd:
-        try:
-            docker.login(username=registry_user, password=registry_passwd, registry=registry_url)
-        except Exception as e:
-            print(e)
-            sys.exit(1)
 
     app.run(
         host  = os.environ.get('HOST', default=h),

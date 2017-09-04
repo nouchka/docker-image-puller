@@ -1,0 +1,15 @@
+version: '3'
+
+services:
+  puller:
+    build: .
+    image: nouchka/puller
+    ports:
+     - "8080:8080"
+    environment:
+      - TOKEN=123456789
+      - ROUTE=/images/poule
+      - DEBUG=True
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+
