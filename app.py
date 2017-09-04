@@ -44,9 +44,9 @@ def image_puller():
           image_name = image[0]
           image_tag  = image[1] if len(image) == 2 else 'latest'
           app.logger.debug('Pulling... '+image_name+':'+image_tag)
+          print ('Updating image', image_name, ':', image_tag)
           docker.pull(image_name, tag=image_tag)
 
-    print ('Updating', str(len(images)), 'containers with', image, 'image')
 
     return jsonify(success=True, num_images=len(images)), 200
 
