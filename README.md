@@ -1,8 +1,8 @@
 Docker Image Puller
 ===================
 
-[![](https://images.microbadger.com/badges/version/tuxity/docker-image-puller.svg)](https://hub.docker.com/r/tuxity/docker-image-puller/)
-![](https://images.microbadger.com/badges/image/tuxity/docker-image-puller.svg)
+[![](https://images.microbadger.com/badges/version/nouchka/puller.svg)](https://hub.docker.com/r/nouchka/puller/)
+![](https://images.microbadger.com/badges/image/nouchka/puller.svg)
 
 ## Overview
 
