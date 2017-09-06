@@ -9,6 +9,9 @@ before_script:
 
 script:
   - docker ps
+  - sleep 5
+  - docker images
+  - docker logs dockerimagepuller_puller_1
   - ./test.sh
 
 after_script:
