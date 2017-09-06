@@ -57,6 +57,9 @@ CODE=$(curl -X POST -s -o json.tmp -w "%{http_code}" -d '{"repository":{"namespa
 if ! grep "success" json.tmp >> /dev/null; then
 	echo "No success:"
 	cat json.tmp
+	[ ! -f "json.tmp" ] || rm json.tmp
 	exit 1
 fi
+[ ! -f "json.tmp" ] || rm json.tmp
+echo "All done"
 exit 0
